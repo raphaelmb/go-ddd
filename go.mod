@@ -5,6 +5,7 @@ go 1.22.0
 require (
 	github.com/Rhymond/go-money v1.0.10
 	github.com/google/uuid v1.6.0
+	github.com/stripe/stripe-go/v73 v73.16.0
 	go.mongodb.org/mongo-driver v1.14.0
 )
 
