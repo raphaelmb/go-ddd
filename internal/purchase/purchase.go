@@ -14,6 +14,10 @@ import (
 	"github.com/raphaelmb/go-ddd/internal/store"
 )
 
+type StoreService interface {
+	GetStoreSpecificDiscount(ctx context.Context, storeID uuid.UUID) (float32, error)
+}
+
 type Purchase struct {
 	id                 uuid.UUID
 	Store              store.Store
@@ -53,10 +57,15 @@ type CardChargeService interface {
 type Service struct {
 	cardService  CardChargeService
 	purchaseRepo Repository
+	storeStore   StoreService
 }
 
-func (s Service) CompletePurchase(ctx context.Context, purchase *Purchase, coffeeBuxCard *loyalty.CoffeeBux) error {
+func (s Service) CompletePurchase(ctx context.Context, storeID uuid.UUID, purchase *Purchase, coffeeBuxCard *loyalty.CoffeeBux) error {
 	if err := purchase.validateandEnrich(); err != nil {
+		return err
+	}
+
+	if err := s.calculateStoreSpecificDiscount(ctx, storeID, purchase); err != nil {
 		return err
 	}
 
@@ -83,6 +92,20 @@ func (s Service) CompletePurchase(ctx context.Context, purchase *Purchase, coffe
 
 	if coffeeBuxCard != nil {
 		coffeeBuxCard.AddStamp()
+	}
+
+	return nil
+}
+
+func (s Service) calculateStoreSpecificDiscount(ctx context.Context, storeID uuid.UUID, purchase *Purchase) error {
+	discount, err := s.storeStore.GetStoreSpecificDiscount(ctx, storeID)
+	if err != nil && err != store.ErrNoDiscount {
+		return fmt.Errorf("failed to get discount: %w", err)
+	}
+
+	purchasePrice := purchase.total
+	if discount > 0 {
+		purchasePrice = *purchasePrice.Multiply(int64(100 - discount))
 	}
 
 	return nil
